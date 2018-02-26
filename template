@@ -1,0 +1,98 @@
+/*
+Purpose:    Encode and publish multiple sensor readings
+*/
+
+#define num_data_points 2 // The MAX number of data points you'll be publishing
+#define num_phenom_types 2
+
+#define DHTPINA A0
+#define DHTTYPE DHT22
+
+/* INCLUDE Statements */
+#include "DHT.h"
+/**/
+
+/* USER INPUT */
+String firmware = "test_v1";   // try to match this to a git commit - to track how a device is collecting data
+String experiment = "CISBAT";  // used for filtering, and to differentiate concurrent experiments in same building
+String location = "PU_CoolingTower"; // probably a building, used for filtering
+String label = "036";  // something unqiue!
+int sample_rate = 5 * 1000; // how often you want device to publish
+/**/
+int _delay = sample_rate * 1000;
+
+/* ENCODING */
+int temp_index = 0;
+String temp_label = "temp";
+
+int humid_index = 1;
+String humid_label = "humid";
+/**/
+
+/* READINGS */
+float humid_reading;    // humidity
+float temp_reading;    // temperature c
+/**/
+
+DHT dhta(DHTPINA, DHTTYPE); // create your DHT object
+
+String data[] = {
+    "", // temp_index = 0
+    "" // humid_index = 1
+}; // "label:value"
+
+String phenom_types[] = {
+    "temp.c,1",
+    "humid,1"
+}; // "phemenon.unit,num_samples"
+
+
+/* Helper Stuff */
+String string_holder = "";
+String event_string = "";
+String data_string = "";
+/**/
+
+void setup() {
+    // Hardware notes
+    Particle.variable("firmware", firmware);
+
+    // Experimental notes
+    Particle.variable("experiment", experiment);
+    Particle.variable("location", location);  // usually a building
+    Particle.variable("label", label);  // something unqiue
+    Particle.variable("rate", _delay);  // Publish frequency
+
+    dhta.begin();
+}
+
+void loop() {
+  /* DHT22 Loop */
+  delay(1000);
+  temp_reading = dhta.readTemperature(false);  // Read Temperature
+  data[temp_index] = temp_label + ":" + String(temp_reading);
+  delay(100);
+  humid_reading = dhta.readHumidity(); // Read Humidity
+  data[humid_index] = humid_label + ":" + String(humid_reading);
+  delay(1000);
+  /**/
+  
+  /* ENCODE + PUBLISH */
+  event_string = join(phenom_types, num_phenom_types);
+  data_string = join(data, num_data_points);
+  
+  Serial.println(event_string);
+  Serial.println(data_string);
+  Particle.publish(event_string,data_string); // Publish
+  /**/
+
+  delay(_delay);
+}
+
+String join(String words[], int num_words){
+  String all_together = "";
+  for (int i=0; i < num_words; i++){
+    all_together += (words[i] + " ");
+  }
+  return all_together;
+}
